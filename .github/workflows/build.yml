@@ -1,0 +1,114 @@
+name: Build OpenWrt for RPi4B
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.config'
+      - 'feeds.conf.default'
+      - '.github/workflows/build.yml'
+
+env:
+  REPO_URL: https://github.com/openwrt/openwrt
+  REPO_BRANCH: v23.05.5
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .config
+  DIY_SCRIPT: diy.sh
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get autoremove -y
+          sudo apt-get autoclean
+          df -h
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison \
+            build-essential bzip2 ccache cmake cpio curl device-tree-compiler \
+            fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged \
+            help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev \
+            libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev \
+            libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool \
+            lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch \
+            pkgconf python3 python3-pyelftools python3-setuptools qemu-utils \
+            rsync scons squashfs-tools subversion swig texinfo uglifyjs \
+            upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+
+      - name: Clone OpenWrt source
+        run: |
+          git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt || true
+
+      - name: Load custom feeds
+        run: |
+          cp $FEEDS_CONF openwrt/feeds.conf.default
+
+      - name: Update & install feeds
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Load .config
+        run: |
+          cp $CONFIG_FILE openwrt/.config
+          cd openwrt
+          make defconfig
+
+      - name: Run DIY script
+        run: |
+          chmod +x $DIY_SCRIPT
+          cd openwrt
+          $GITHUB_WORKSPACE/$DIY_SCRIPT
+
+      - name: Download packages
+        working-directory: openwrt
+        run: |
+          make download -j8
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: Compile firmware
+        working-directory: openwrt
+        run: |
+          echo -e "$(nproc) thread compile"
+          make -j$(nproc) || make -j1 V=s
+          echo "compile_status=success" >> $GITHUB_ENV
+
+      - name: Organize files
+        run: |
+          cd openwrt/bin/targets/*/*
+          rm -rf packages
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+
+      - name: Upload firmware to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: env.compile_status == 'success'
+        with:
+          tag_name: openwrt-rpi4-${{ github.run_number }}
+          name: OpenWrt RPi4B ${{ github.run_number }}
+          body: |
+            ## OpenWrt for Raspberry Pi 4B
+            - Base: OpenWrt 23.05.5 官方源码
+            - 文件系统: ext4
+            - 分区大小: 15360MB（适合 16G SD 卡）
+            - 预装: OpenClash (Meta/Mihomo 内核), AdGuard Home, LuCI 中文
+            - 烧录工具: Raspberry Pi Imager 或 Balena Etcher
+          files: ${{ env.FIRMWARE }}/*
+          token: ${{ secrets.GITHUB_TOKEN }}
