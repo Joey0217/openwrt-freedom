@@ -1,3 +1,2 @@
 src-git packages https://git.openwrt.org/feed/packages.git^a9bcb6f
 src-git luci https://git.openwrt.org/project/luci.git^4778609
-src-git routing https://git.openwrt.org/feed/routing.git^acba5f3
