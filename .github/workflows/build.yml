@@ -62,12 +62,8 @@ jobs:
       - name: Update & install feeds
         working-directory: openwrt
         run: |
-          ./scripts/feeds update -a 2>&1
-          ./scripts/feeds install -a 2>&1 || {
-            echo "=== feeds install failed, trying verbose ==="
-            ./scripts/feeds install -a -v 2>&1
-            exit 1
-          }
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
       - name: Load .config
         run: |
