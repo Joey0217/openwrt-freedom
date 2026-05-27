@@ -12,7 +12,7 @@ on:
 
 env:
   REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: v23.05.5
+  REPO_BRANCH: v25.12.4
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_SCRIPT: diy.sh
@@ -48,12 +48,17 @@ jobs:
             lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch \
             pkgconf python3 python3-pyelftools python3-setuptools qemu-utils \
             rsync scons squashfs-tools subversion swig texinfo uglifyjs \
-            upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+            upx-ucl unzip vim wget xmlto xxd zlib1g-dev \
+            clang llvm
 
       - name: Clone OpenWrt source
         run: |
           git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt || true
+
+      - name: Clone daed feed
+        run: |
+          git clone https://github.com/QiuSimons/luci-app-daed openwrt/package/dae
 
       - name: Load custom feeds
         run: |
@@ -105,10 +110,10 @@ jobs:
           name: OpenWrt RPi4B ${{ github.run_number }}
           body: |
             ## OpenWrt for Raspberry Pi 4B
-            - Base: OpenWrt 23.05.5 官方源码
+            - Base: OpenWrt 25.12.4 官方源码
             - 文件系统: ext4
             - 分区大小: 15360MB（适合 16G SD 卡）
-            - 预装: OpenClash (Meta/Mihomo 内核), AdGuard Home, LuCI 中文
+            - 代理: daed (eBPF)
             - 烧录工具: Raspberry Pi Imager 或 Balena Etcher
           files: ${{ env.FIRMWARE }}/*
           token: ${{ secrets.GITHUB_TOKEN }}
