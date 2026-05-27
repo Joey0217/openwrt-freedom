@@ -1,5 +1,5 @@
 #!/bin/bash
-# diy.sh - 仅做基础配置，不下载任何第三方内容
+# diy.sh - 基础配置
 
 set -e
 
@@ -7,7 +7,7 @@ echo ">>> [DIY] 开始基础配置..."
 
 mkdir -p files/etc/uci-defaults
 
-cat > files/etc/uci-defaults/98-basic-config.sh << 'EOF'
+cat > files/etc/uci-defaults/98-basic-config.sh << 'UCIEOF'
 #!/bin/sh
 
 # LAN IP
@@ -35,7 +35,7 @@ uci commit network
 uci commit system
 uci commit dhcp
 
-EOF
+UCIEOF
 
 chmod +x files/etc/uci-defaults/98-basic-config.sh
 
